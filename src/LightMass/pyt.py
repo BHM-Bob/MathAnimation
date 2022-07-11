@@ -2,7 +2,7 @@
 Author: BHM-Bob G 2262029386@qq.com
 Date: 2022-07-11 21:01:41
 LastEditors: BHM-Bob G
-LastEditTime: 2022-07-11 21:38:09
+LastEditTime: 2022-07-11 21:49:54
 Description: 
 '''
 import cv2
@@ -70,21 +70,22 @@ def UpdateDotsCol(dotsCol,nowTimeStep,nextTimeStep,dTimeStep):
 
 def CacuOnce(dotsX, dotsY, dotsCol, mapX, mapY, frame):
     #cacu 1 / (dx**2 + dy**2)
-    dx = torch.subtract(mapX,dotsX)
-    dy = torch.subtract(mapY,dotsY)
+    dx = mapX.subtract(dotsX)
+    dy = mapY.subtract(dotsY)
     #if there has 0
     zeroT = torch.zeros([1], dtype = torch.int64, device = 'cuda')
+    oneT = torch.ones([1], dtype = torch.float32, device = 'cuda')
     dx.add_(dx.eq(zeroT).to(dtype = torch.int64))
     dy.add_(dy.eq(zeroT).to(dtype = torch.int64))
-    lengths = 1.0 / torch.add( torch.multiply(dx,dx) , torch.multiply(dy,dy) )
+    lengths = oneT.divide(dx.pow(2).add(dy.pow(2)))
     #lengths.shape,sumLengths.shape = (num, H, W) , (1, H, W)
     sumLengths = lengths.sum(axis = 0).reshape(1,H,W)
     #cacu ratio : [num, H, W]
-    ratio = torch.divide(lengths,sumLengths)
+    ratio = lengths.divide(sumLengths)
     #frame[:,:,0]:[H,W,]  ratio:[num, H, W]  dotsCol[0,:,:,:]:[num,1,1]
-    frame[:,:,0] = torch.multiply(ratio,dotsCol[0,:,:,:]).sum(axis = 0)
-    frame[:,:,1] = torch.multiply(ratio,dotsCol[1,:,:,:]).sum(axis = 0)
-    frame[:,:,2] = torch.multiply(ratio,dotsCol[2,:,:,:]).sum(axis = 0)
+    frame[:,:,0] = ratio.mul(dotsCol[0,:,:,:]).sum(axis = 0)
+    frame[:,:,1] = ratio.mul(dotsCol[1,:,:,:]).sum(axis = 0)
+    frame[:,:,2] = ratio.mul(dotsCol[2,:,:,:]).sum(axis = 0)
     return torch.multiply(frame,RGBScale).to(device = 'cpu', dtype = torch.uint8).numpy()
 
 startTime = time.time()
