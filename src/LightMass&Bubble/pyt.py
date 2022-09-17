@@ -2,7 +2,7 @@
 Author: BHM-Bob G 2262029386@qq.com
 Date: 2022-07-11 21:01:41
 LastEditors: BHM-Bob G
-LastEditTime: 2022-09-16 23:36:38
+LastEditTime: 2022-09-17 15:44:14
 Description: 
 '''
 import cv2
@@ -38,7 +38,9 @@ frame = torch.zeros(size = [H,W,3], device = 'cuda',dtype = torch.float32)
 #(num, H, W) (num, H, W) (H, W, 3)
 print(mapX.shape,mapY.shape,frame.shape)
 
-def UpdateDots1Coordinate(dotsX,moveXLen,maxW):
+@torch.jit.script
+def UpdateDots1Coordinate(dotsX:torch.Tensor, moveXLen:torch.Tensor,
+                          maxW:int, sumDots:int):
     dotsX += moveXLen
 
     minEq = torch.zeros(size = [sumDots,1,1], device = 'cuda',dtype = torch.float32)
@@ -56,7 +58,9 @@ def UpdateDots1Coordinate(dotsX,moveXLen,maxW):
 
     return dotsX, moveXLen
 
-def UpdateDotsCol(dotsCol,nowTimeStep,nextTimeStep,dTimeStep):
+@torch.jit.script
+def UpdateDotsCol(dotsCol:torch.Tensor, nowTimeStep:torch.Tensor,
+                  nextTimeStep, dTimeStep:torch.Tensor, sumDots:int):
     #update nowTimeStep
     nowTimeStep += dTimeStep
     #update color:~[0,1]
@@ -66,27 +70,28 @@ def UpdateDotsCol(dotsCol,nowTimeStep,nextTimeStep,dTimeStep):
 
     return dotsCol
 
+@torch.jit.script
 def CacuOnce(dotsX:torch.Tensor, dotsY:torch.Tensor, dotsCol:torch.Tensor,
-             mapX:torch.Tensor, mapY:torch.Tensor, frame:torch.Tensor):
+             mapX:torch.Tensor, mapY:torch.Tensor, frame:torch.Tensor,
+             RGBScale:torch.Tensor):
     #cacu 1 / (dx**2 + dy**2)
     dx = mapX.subtract(dotsX)
     dy = mapY.subtract(dotsY)
     #if there has 0
     zeroT = torch.zeros([1], dtype = torch.int64, device = 'cuda')
-    oneT = torch.ones([1], dtype = torch.float32, device = 'cuda')
     dx.add_(dx.eq(zeroT).to(dtype = torch.int64))
     dy.add_(dy.eq(zeroT).to(dtype = torch.int64))
     lengths = dx.pow(2).add(dy.pow(2))
     lengths = torch.sin(0.00001 * lengths) / lengths
     #lengths:[num, H, W], sumLengths:[1, H, W]
-    sumLengths = lengths.sum(axis = 0, keepdim=True)
+    sumLengths = lengths.sum(dim = 0, keepdim=True)
     #cacu ratio : [num, H, W]
     ratio = lengths / sumLengths
     #frame[:,:,0]:[H,W,]  ratio:[num, H, W]  dotsCol[0,:,:,:]:[num,1,1]
-    frame[:,:,0] = ratio.mul(dotsCol[0,:,:,:]).sum(axis = 0)
-    frame[:,:,1] = ratio.mul(dotsCol[1,:,:,:]).sum(axis = 0)
-    frame[:,:,2] = ratio.mul(dotsCol[2,:,:,:]).sum(axis = 0)
-    return torch.multiply(frame,RGBScale).to(device = 'cpu', dtype = torch.uint8).numpy()
+    frame[:,:,0] = ratio.mul(dotsCol[0,:,:,:]).sum(dim = 0)
+    frame[:,:,1] = ratio.mul(dotsCol[1,:,:,:]).sum(dim = 0)
+    frame[:,:,2] = ratio.mul(dotsCol[2,:,:,:]).sum(dim = 0)
+    return torch.multiply(frame,RGBScale).to(device = 'cpu', dtype = torch.uint8)
 
 startTime = time.time()
 FPSTime = time.time()
@@ -94,10 +99,10 @@ while cv2.waitKey(1) != ord('q') :
     print(f"{1 / (time.time() - FPSTime):.1f} fps")
     FPSTime = time.time()
 
-    CPUFrame = CacuOnce(dotsX, dotsY, dotsCol, mapX, mapY, frame)
-    dotsX, moveXLen = UpdateDots1Coordinate(dotsX,moveXLen,W)
-    dotsY, moveYLen = UpdateDots1Coordinate(dotsY,moveYLen,H)
-    dotsCol = UpdateDotsCol(dotsCol,nowTimeStep,nextTimeStep,dTimeStep)
+    CPUFrame = CacuOnce(dotsX, dotsY, dotsCol, mapX, mapY, frame, RGBScale).numpy()
+    dotsX, moveXLen = UpdateDots1Coordinate(dotsX, moveXLen, W, sumDots)
+    dotsY, moveYLen = UpdateDots1Coordinate(dotsY, moveYLen, H, sumDots)
+    dotsCol = UpdateDotsCol(dotsCol, nowTimeStep, nextTimeStep, dTimeStep, sumDots)
 
     cv2.imshow('animation', CPUFrame)
 
