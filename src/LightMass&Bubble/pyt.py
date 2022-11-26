@@ -1,16 +1,17 @@
 '''
 Author: BHM-Bob G 2262029386@qq.com
 Date: 2022-07-11 21:01:41
-LastEditors: BHM-Bob G
-LastEditTime: 2022-09-17 15:44:14
+LastEditors: BHM-Bob
+LastEditTime: 2022-11-26 11:27:20
 Description: 
 '''
-import cv2
 import time
+
+import cv2
 import torch
 
-W = 1600
-H = 900
+W = 1200
+H = 800
 FPS = 24
 sumDots = torch.randint(10,20, size = [1]).item()
 print("sumDots:",sumDots)
@@ -103,7 +104,7 @@ while cv2.waitKey(1) != ord('q') :
     dotsX, moveXLen = UpdateDots1Coordinate(dotsX, moveXLen, W, sumDots)
     dotsY, moveYLen = UpdateDots1Coordinate(dotsY, moveYLen, H, sumDots)
     dotsCol = UpdateDotsCol(dotsCol, nowTimeStep, nextTimeStep, dTimeStep, sumDots)
-
+    
     cv2.imshow('animation', CPUFrame)
 
 cv2.destroyAllWindows()
