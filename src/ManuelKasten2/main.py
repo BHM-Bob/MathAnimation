@@ -2,7 +2,7 @@
 Author: BHM-Bob G 2262029386@qq.com
 Date: 2022-07-11 21:01:41
 LastEditors: BHM-Bob 2262029386@qq.com
-LastEditTime: 2023-07-01 01:25:07
+LastEditTime: 2023-07-01 01:28:40
 Description: 
 '''
 import cv2
@@ -23,6 +23,24 @@ def cacu_once(rand_state:torch.Tensor, n:int = 1, W:int = 1024, H:int = 1024):
 
     - `rgb` is converted to `torch.int32`.
     - Elements greater than 255 in `rgb` are replaced with `511 - element`.
+    
+    the C++ implementation of this function:
+    ```C++
+    namespace ManuelKasten2
+    {
+        unsigned char RD(int i, int j) {
+            static double k; k += (double)rand() / RAND_MAX; int l = k; l %= 512; return l > 255 ? 511 - l : l;
+        }
+
+        unsigned char GR(int i, int j) {
+            static double k; k += (double)rand() / RAND_MAX; int l = k; l %= 512; return l > 255 ? 511 - l : l;
+        }
+
+        unsigned char BL(int i, int j) {
+            static double k; k += (double)rand() / RAND_MAX; int l = k; l %= 512; return l > 255 ? 511 - l : l;
+        }
+    }
+    ```
     """
     rand_state = torch.roll(rand_state, shifts=n, dims = -1)
     rand_state[:, :n] = torch.rand([3, n], dtype = torch.float64, device = 'cuda')
